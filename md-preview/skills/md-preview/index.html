@@ -510,7 +510,7 @@
         <p class="intro">The page scans the target directory on every load and renders each Markdown file as HTML.</p>
       </div>
       <div class="actions">
-        <button class="button" type="button" id="toggle-selector-button" aria-controls="document-list" aria-expanded="true">Hide selector</button>
+        <button class="button" type="button" id="toggle-selector-button" aria-controls="document-list" aria-expanded="true">Hide sidebar</button>
         <button class="button" type="button" id="refresh-button">Refresh scan</button>
       </div>
     </header>
@@ -583,7 +583,7 @@
       function setSelectorVisible(isVisible) {
         layout.classList.toggle('selector-hidden', !isVisible);
         toggleSelectorButton.setAttribute('aria-expanded', String(isVisible));
-        toggleSelectorButton.textContent = isVisible ? 'Hide selector' : 'Show selector';
+        toggleSelectorButton.textContent = isVisible ? 'Hide sidebar' : 'Show sidebar';
       }
 
       function escapeHtml(value) {
