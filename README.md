@@ -4,6 +4,8 @@ A Claude Code plugin that serves a directory's markdown and HTML files as a brow
 
 Ask Claude to "preview the markdown files here" (or run `/markview:start`) and it spins up a tiny local web server with a sidebar listing every document in the directory, rendered with clean typography.
 
+![The markview viewer: sidebar with the directory's documents on the left, a rendered markdown file on the right](docs/screenshot.png)
+
 ## Features
 
 - **Rendered markdown** — GitHub-flavored markdown via a vendored copy of [marked](https://github.com/markedjs/marked), sanitized with [DOMPurify](https://github.com/cure53/DOMPurify)
