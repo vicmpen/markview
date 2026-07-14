@@ -320,9 +320,51 @@
     }
 
     .reader-header {
+      position: relative;
       padding: 24px 28px 20px;
       border-bottom: 1px solid var(--border);
       background: var(--surface-soft);
+    }
+
+    .copy-button {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .copy-button:hover:not(:disabled),
+    .copy-button:focus-visible {
+      border-color: var(--accent);
+      color: var(--accent-strong);
+      outline: none;
+    }
+
+    .copy-button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    .copy-button.copied {
+      border-color: var(--accent);
+      color: var(--accent-strong);
+    }
+
+    .html-frame {
+      display: block;
+      width: 100%;
+      height: 75vh;
+      border: 0;
     }
 
     .reader-header h2 {
@@ -507,7 +549,7 @@
       <div>
         <p class="eyebrow">Markdown reader</p>
         <h1>Markdown documents</h1>
-        <p class="intro">The page scans the target directory on every load and renders each Markdown file as HTML.</p>
+        <p class="intro">The page scans the target directory on every load and renders each Markdown and HTML file.</p>
       </div>
       <div class="actions">
         <button class="button" type="button" id="toggle-selector-button" aria-controls="document-list" aria-expanded="true">Hide sidebar</button>
@@ -518,7 +560,7 @@
     <section class="stats" aria-label="Directory summary">
       <div class="stat">
         <strong id="file-count">0</strong>
-        <span>Markdown files</span>
+        <span>Documents</span>
       </div>
       <div class="stat">
         <strong id="line-count">0</strong>
@@ -530,7 +572,7 @@
       </div>
     </section>
 
-    <p class="status" id="status" role="status">Scanning markdown files...</p>
+    <p class="status" id="status" role="status">Scanning files...</p>
 
     <section class="layout" id="document-layout" aria-label="Markdown documents">
       <div class="sidebar" id="sidebar">
@@ -543,6 +585,10 @@
 
       <article class="reader" id="document-viewer" aria-live="polite">
         <header class="reader-header">
+          <button class="copy-button" type="button" id="copy-button" aria-label="Copy source" title="Copy source" disabled>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M10 1H4a1.5 1.5 0 0 0-1.5 1.5v8H4v-8h6V1zm2 3H6.5A1.5 1.5 0 0 0 5 5.5v8A1.5 1.5 0 0 0 6.5 15H12a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 12 4zm0 9.5H6.5v-8H12v8z"/></svg>
+            <span class="copy-label">Copy</span>
+          </button>
           <p class="eyebrow" id="doc-kicker">No document selected</p>
           <h2 id="doc-title">Scanning...</h2>
           <ul class="reader-meta" id="doc-meta"></ul>
@@ -565,6 +611,8 @@
       const title = document.getElementById('doc-title');
       const kicker = document.getElementById('doc-kicker');
       const meta = document.getElementById('doc-meta');
+      const copyButton = document.getElementById('copy-button');
+      const copyLabel = copyButton.querySelector('.copy-label');
       const status = document.getElementById('status');
       const searchInput = document.getElementById('tree-search');
       const toggleAllButton = document.getElementById('toggle-all-button');
@@ -686,21 +734,30 @@
 
         if (!doc) {
           currentDocId = null;
-          kicker.textContent = 'No markdown files';
+          copyButton.disabled = true;
+          kicker.textContent = 'No documents';
           title.textContent = 'Nothing to render';
           meta.innerHTML = '';
-          viewer.innerHTML = '<div class="empty">No Markdown files were found in this directory.</div>';
+          viewer.innerHTML = '<div class="empty">No Markdown or HTML files were found in this directory.</div>';
           return;
         }
 
-        kicker.textContent = 'Markdown file';
+        const isHtml = /\.html$/i.test(doc.filename);
+        copyButton.disabled = false;
+        kicker.textContent = isHtml ? 'HTML file' : 'Markdown file';
         title.textContent = doc.title;
         meta.innerHTML = [doc.filename, doc.lineCount + ' lines', doc.sectionCount + ' sections']
           .map(function (item) {
             return '<li>' + escapeHtml(item) + '</li>';
           })
           .join('');
-        viewer.innerHTML = renderMarkdown(doc.markdown);
+        if (isHtml) {
+          viewer.innerHTML = '<iframe class="html-frame" src="' +
+            escapeAttribute('/raw/' + doc.filename.split('/').map(encodeURIComponent).join('/')) +
+            '" title="' + escapeAttribute(doc.title) + '"></iframe>';
+        } else {
+          viewer.innerHTML = renderMarkdown(doc.markdown);
+        }
 
         currentDocId = doc.id;
         Array.from(list.querySelectorAll('.doc-button')).forEach(function (button) {
@@ -717,7 +774,7 @@
           throw new Error('Marked could not be loaded.');
         }
 
-        setStatus('Scanning markdown files...');
+        setStatus('Scanning files...');
         const response = await fetch(endpoint, { cache: 'no-store' });
         if (!response.ok) {
           throw new Error('Scan request failed with HTTP ' + response.status + '.');
@@ -727,7 +784,7 @@
         setStats();
         renderDocumentList();
         renderDocument(preferredId || (location.hash ? location.hash.slice(1) : null), false);
-        setStatus('Last scan loaded ' + documents.length + ' Markdown file' + (documents.length === 1 ? '.' : 's.'));
+        setStatus('Last scan loaded ' + documents.length + ' document' + (documents.length === 1 ? '.' : 's.'));
       }
 
       async function refresh(preferredId) {
@@ -767,6 +824,28 @@
           folder.parentElement.classList.toggle('tree-collapsed', collapse);
         });
         toggleAllButton.textContent = collapse ? 'Expand all' : 'Collapse all';
+      });
+
+      copyButton.addEventListener('click', function () {
+        const doc = documents.find(function (item) {
+          return item.id === currentDocId;
+        });
+        if (!doc) {
+          return;
+        }
+        navigator.clipboard.writeText(doc.markdown).then(function () {
+          copyButton.classList.add('copied');
+          copyLabel.textContent = 'Copied';
+          setTimeout(function () {
+            copyButton.classList.remove('copied');
+            copyLabel.textContent = 'Copy';
+          }, 1500);
+        }, function () {
+          copyLabel.textContent = 'Failed';
+          setTimeout(function () {
+            copyLabel.textContent = 'Copy';
+          }, 1500);
+        });
       });
 
       list.addEventListener('click', function (event) {
