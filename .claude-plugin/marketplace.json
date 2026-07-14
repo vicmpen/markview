@@ -1,0 +1,13 @@
+{
+  "name": "vic-dev",
+  "owner": {
+    "name": "Vic"
+  },
+  "plugins": [
+    {
+      "name": "md-preview",
+      "source": "./md-preview",
+      "description": "Browse and read a directory's markdown files in a styled local web viewer"
+    }
+  ]
+}
