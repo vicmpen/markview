@@ -148,11 +148,13 @@
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .document-list {
+    .sidebar {
       position: sticky;
       top: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
       max-height: calc(100vh - 36px);
-      overflow-y: auto;
       padding: 10px;
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -160,7 +162,62 @@
       box-shadow: 0 8px 24px rgba(29, 37, 41, 0.05);
     }
 
-    .layout.selector-hidden .document-list {
+    .sidebar-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tree-search {
+      flex: 1;
+      min-width: 0;
+      padding: 7px 9px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-soft);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.88rem;
+    }
+
+    .tree-search:focus-visible {
+      border-color: var(--accent);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(15, 107, 87, 0.14);
+    }
+
+    .tree-toggle-all {
+      padding: 7px 9px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .tree-toggle-all:hover,
+    .tree-toggle-all:focus-visible {
+      border-color: var(--accent);
+      color: var(--accent-strong);
+      outline: none;
+    }
+
+    .document-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .tree-empty {
+      margin: 0;
+      padding: 7px 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .layout.selector-hidden .sidebar {
       display: none;
     }
 
@@ -476,7 +533,13 @@
     <p class="status" id="status" role="status">Scanning markdown files...</p>
 
     <section class="layout" id="document-layout" aria-label="Markdown documents">
-      <nav class="document-list" id="document-list" aria-label="Documents"></nav>
+      <div class="sidebar" id="sidebar">
+        <div class="sidebar-controls">
+          <input class="tree-search" type="search" id="tree-search" placeholder="Filter files..." aria-label="Filter files">
+          <button class="tree-toggle-all" type="button" id="toggle-all-button">Collapse all</button>
+        </div>
+        <nav class="document-list" id="document-list" aria-label="Documents"></nav>
+      </div>
 
       <article class="reader" id="document-viewer" aria-live="polite">
         <header class="reader-header">
@@ -503,12 +566,15 @@
       const kicker = document.getElementById('doc-kicker');
       const meta = document.getElementById('doc-meta');
       const status = document.getElementById('status');
+      const searchInput = document.getElementById('tree-search');
+      const toggleAllButton = document.getElementById('toggle-all-button');
       const toggleSelectorButton = document.getElementById('toggle-selector-button');
       const refreshButton = document.getElementById('refresh-button');
       const fileCount = document.getElementById('file-count');
       const lineCount = document.getElementById('line-count');
       const sectionCount = document.getElementById('section-count');
       let documents = [];
+      let currentDocId = null;
 
       function setStatus(message) {
         status.textContent = message;
@@ -589,8 +655,28 @@
         return html;
       }
 
+      function visibleDocuments() {
+        const query = searchInput.value.trim().toLowerCase();
+        if (!query) {
+          return documents;
+        }
+        return documents.filter(function (doc) {
+          return doc.filename.toLowerCase().includes(query) ||
+            doc.title.toLowerCase().includes(query);
+        });
+      }
+
       function renderDocumentList() {
-        list.innerHTML = renderTreeNode(buildTree(documents));
+        const visible = visibleDocuments();
+        if (!visible.length && searchInput.value.trim()) {
+          list.innerHTML = '<p class="tree-empty">No matches</p>';
+          return;
+        }
+        list.innerHTML = renderTreeNode(buildTree(visible));
+        toggleAllButton.textContent = 'Collapse all';
+        Array.from(list.querySelectorAll('.doc-button')).forEach(function (button) {
+          button.setAttribute('aria-current', button.dataset.docId === currentDocId ? 'true' : 'false');
+        });
       }
 
       function renderDocument(docId, updateHash) {
@@ -599,6 +685,7 @@
         }) || documents[0];
 
         if (!doc) {
+          currentDocId = null;
           kicker.textContent = 'No markdown files';
           title.textContent = 'Nothing to render';
           meta.innerHTML = '';
@@ -615,6 +702,7 @@
           .join('');
         viewer.innerHTML = renderMarkdown(doc.markdown);
 
+        currentDocId = doc.id;
         Array.from(list.querySelectorAll('.doc-button')).forEach(function (button) {
           button.setAttribute('aria-current', button.dataset.docId === doc.id ? 'true' : 'false');
         });
@@ -666,6 +754,19 @@
 
       toggleSelectorButton.addEventListener('click', function () {
         setSelectorVisible(layout.classList.contains('selector-hidden'));
+      });
+
+      searchInput.addEventListener('input', function () {
+        renderDocumentList();
+      });
+
+      toggleAllButton.addEventListener('click', function () {
+        const collapse = toggleAllButton.textContent === 'Collapse all';
+        Array.from(list.querySelectorAll('.tree-folder')).forEach(function (folder) {
+          folder.setAttribute('aria-expanded', String(!collapse));
+          folder.parentElement.classList.toggle('tree-collapsed', collapse);
+        });
+        toggleAllButton.textContent = collapse ? 'Expand all' : 'Collapse all';
       });
 
       list.addEventListener('click', function (event) {
