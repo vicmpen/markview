@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const serverPath = join(
   dirname(fileURLToPath(import.meta.url)),
-  '..', 'skills', 'md-preview', 'server.mjs'
+  '..', 'skills', 'markview', 'server.mjs'
 );
 
 function startServer(dir, env = {}) {
@@ -37,10 +37,10 @@ function startServer(dir, env = {}) {
 }
 
 let fixtureDir;
-const outsideFile = join(tmpdir(), 'md-preview-outside.md');
+const outsideFile = join(tmpdir(), 'markview-outside.md');
 
 before(async () => {
-  fixtureDir = await mkdtemp(join(tmpdir(), 'md-preview-test-'));
+  fixtureDir = await mkdtemp(join(tmpdir(), 'markview-test-'));
   await writeFile(join(fixtureDir, 'root.md'), '# Root Doc\n\n## Section One\n\nHello.\n');
   await mkdir(join(fixtureDir, 'docs'), { recursive: true });
   await writeFile(join(fixtureDir, 'docs', 'nested.md'), 'No heading here.\n');
@@ -128,7 +128,7 @@ test('serves raw files from the target directory with correct content types', as
 test('raw endpoint rejects path traversal', async () => {
   const { proc, url } = await startServer(fixtureDir);
   try {
-    const response = await fetch(new URL('/raw/' + encodeURIComponent('../md-preview-outside.md'), url));
+    const response = await fetch(new URL('/raw/' + encodeURIComponent('../markview-outside.md'), url));
     assert.equal(response.status, 404);
   } finally {
     proc.kill();

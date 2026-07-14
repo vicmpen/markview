@@ -1,5 +1,5 @@
 ---
-name: md-preview
+name: markview
 description: Use when the user wants to preview, browse, or read a directory's markdown or HTML files rendered in the browser — e.g. "preview the markdown files here", "start the markdown reader", "show me these md files rendered". Starts a local web server with a styled viewer.
 ---
 
@@ -13,7 +13,7 @@ Serve a browsable, rendered view of all markdown files in a directory.
 2. Launch the server as a background task:
 
    ```bash
-   node ${CLAUDE_PLUGIN_ROOT}/skills/md-preview/server.mjs <target-dir>
+   node ${CLAUDE_PLUGIN_ROOT}/skills/markview/server.mjs <target-dir>
    ```
 
 3. Read the URL from the stdout line `Markdown reader for <dir> running at <url>`. Do not assume port 4173 — the server picks the next free port if it is taken.
@@ -25,5 +25,5 @@ Serve a browsable, rendered view of all markdown files in a directory.
 - Requires Node.js ≥ 18; uses only built-ins, no npm install.
 - Scans the target directory recursively for `.md` and `.html` files, skipping `node_modules` and dot-directories.
 - To preview a different directory, start another instance with that directory as the argument — each instance picks its own port.
-- Slash commands are available for explicit control: `/md-preview:start [dir]` and `/md-preview:stop` (stops all instances).
+- Slash commands are available for explicit control: `/markview:start [dir]` and `/markview:stop` (stops all instances).
 - If the server fails to start, show the user its stderr output rather than guessing.
