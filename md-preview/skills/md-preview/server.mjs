@@ -10,6 +10,24 @@ const host = '127.0.0.1';
 const MAX_PORT_ATTEMPTS = 20;
 
 const VENDOR_PATHS = new Set(['/vendor/marked.umd.js', '/vendor/purify.min.js']);
+const DOCUMENT_EXTENSIONS = new Set(['.md', '.html']);
+
+const RAW_CONTENT_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.md': 'text/plain; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon'
+};
 
 function send(response, statusCode, body, contentType) {
   response.writeHead(statusCode, {
@@ -19,23 +37,35 @@ function send(response, statusCode, body, contentType) {
   response.end(body);
 }
 
-function titleFromMarkdown(relativePath, markdown) {
-  const heading = markdown.match(/^#\s+(.+)$/m);
+function fallbackTitle(relativePath) {
+  const basename = relativePath.split('/').pop();
+  return basename
+    .replace(/\.(md|html)$/i, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function titleFromSource(relativePath, source) {
+  if (extname(relativePath).toLowerCase() === '.html') {
+    const titleTag = source.match(/<title[^>]*>([^<]*)<\/title>/i);
+    if (titleTag && titleTag[1].trim()) {
+      return titleTag[1].trim();
+    }
+    return fallbackTitle(relativePath);
+  }
+
+  const heading = source.match(/^#\s+(.+)$/m);
   if (heading) {
     return heading[1].trim();
   }
 
-  const basename = relativePath.split('/').pop();
-  return basename
-    .replace(/\.md$/i, '')
-    .replace(/[-_]+/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return fallbackTitle(relativePath);
 }
 
 function idFromPath(relativePath) {
   return relativePath
     .toLowerCase()
-    .replace(/\.md$/i, '')
+    .replace(/\.(md|html)$/i, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'document';
 }
@@ -51,7 +81,7 @@ async function collectMarkdownPaths(dir) {
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
       paths.push(...await collectMarkdownPaths(fullPath));
-    } else if (entry.isFile() && extname(entry.name).toLowerCase() === '.md') {
+    } else if (entry.isFile() && DOCUMENT_EXTENSIONS.has(extname(entry.name).toLowerCase())) {
       paths.push(fullPath);
     }
   }
@@ -67,14 +97,17 @@ async function scanMarkdownFiles() {
   const documents = [];
 
   for (const relativePath of relativePaths) {
-    const markdown = await readFile(join(targetDir, relativePath), 'utf8');
+    const source = await readFile(join(targetDir, relativePath), 'utf8');
+    const isHtml = extname(relativePath).toLowerCase() === '.html';
     documents.push({
       id: idFromPath(relativePath),
       filename: relativePath,
-      title: titleFromMarkdown(relativePath, markdown),
-      lineCount: markdown.split(/\r?\n/).length,
-      sectionCount: (markdown.match(/^##\s+/gm) || []).length,
-      markdown
+      title: titleFromSource(relativePath, source),
+      lineCount: source.split(/\r?\n/).length,
+      sectionCount: isHtml
+        ? (source.match(/<h2[\s>]/gi) || []).length
+        : (source.match(/^##\s+/gm) || []).length,
+      markdown: source
     });
   }
 
@@ -99,6 +132,25 @@ async function handleRequest(request, response) {
   if (VENDOR_PATHS.has(url.pathname)) {
     const script = await readFile(join(assetRoot, url.pathname.slice(1)), 'utf8');
     send(response, 200, script, 'text/javascript; charset=utf-8');
+    return;
+  }
+
+  if (url.pathname.startsWith('/raw/')) {
+    const relativePath = decodeURIComponent(url.pathname.slice('/raw/'.length));
+    const fullPath = resolve(join(targetDir, relativePath));
+    if (fullPath !== targetDir && !fullPath.startsWith(targetDir + '/')) {
+      send(response, 404, 'Not found', 'text/plain; charset=utf-8');
+      return;
+    }
+    let body;
+    try {
+      body = await readFile(fullPath);
+    } catch {
+      send(response, 404, 'Not found', 'text/plain; charset=utf-8');
+      return;
+    }
+    const contentType = RAW_CONTENT_TYPES[extname(fullPath).toLowerCase()] || 'application/octet-stream';
+    send(response, 200, body, contentType);
     return;
   }
 

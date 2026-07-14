@@ -37,23 +37,31 @@ function startServer(dir, env = {}) {
 }
 
 let fixtureDir;
+const outsideFile = join(tmpdir(), 'md-preview-outside.md');
 
 before(async () => {
   fixtureDir = await mkdtemp(join(tmpdir(), 'md-preview-test-'));
   await writeFile(join(fixtureDir, 'root.md'), '# Root Doc\n\n## Section One\n\nHello.\n');
   await mkdir(join(fixtureDir, 'docs'), { recursive: true });
   await writeFile(join(fixtureDir, 'docs', 'nested.md'), 'No heading here.\n');
+  await writeFile(join(fixtureDir, 'docs', 'style.css'), 'body { color: red; }\n');
+  await writeFile(
+    join(fixtureDir, 'page.html'),
+    '<!doctype html>\n<html><head><title>Fixture Page</title></head>\n<body><h2>Alpha</h2><h2>Beta</h2><script>console.log("hi")</script></body></html>\n'
+  );
   await mkdir(join(fixtureDir, '.hidden'), { recursive: true });
   await writeFile(join(fixtureDir, '.hidden', 'secret.md'), '# Secret\n');
   await mkdir(join(fixtureDir, 'node_modules', 'pkg'), { recursive: true });
   await writeFile(join(fixtureDir, 'node_modules', 'pkg', 'readme.md'), '# Dep Readme\n');
+  await writeFile(outsideFile, '# Outside\n');
 });
 
 after(async () => {
   await rm(fixtureDir, { recursive: true, force: true });
+  await rm(outsideFile, { force: true });
 });
 
-test('API lists markdown files recursively, skipping dot-dirs and node_modules', async () => {
+test('API lists markdown and HTML files recursively, skipping dot-dirs and node_modules', async () => {
   const { proc, url } = await startServer(fixtureDir);
   try {
     const response = await fetch(new URL('/api/markdown-files', url));
@@ -61,7 +69,7 @@ test('API lists markdown files recursively, skipping dot-dirs and node_modules',
     const documents = await response.json();
     assert.deepEqual(
       documents.map((doc) => doc.filename),
-      ['docs/nested.md', 'root.md']
+      ['docs/nested.md', 'page.html', 'root.md']
     );
     const root = documents.find((doc) => doc.filename === 'root.md');
     assert.equal(root.title, 'Root Doc');
@@ -71,6 +79,11 @@ test('API lists markdown files recursively, skipping dot-dirs and node_modules',
     assert.equal(nested.title, 'Nested');
     assert.equal(nested.id, 'docs-nested');
     assert.equal(nested.lineCount, 2);
+    const page = documents.find((doc) => doc.filename === 'page.html');
+    assert.equal(page.title, 'Fixture Page');
+    assert.equal(page.id, 'page');
+    assert.equal(page.sectionCount, 2);
+    assert.match(page.markdown, /console\.log/);
   } finally {
     proc.kill();
   }
@@ -90,6 +103,33 @@ test('serves bundled viewer and vendor scripts from the plugin directory', async
       assert.equal(script.status, 200);
       assert.match(script.headers.get('content-type'), /javascript/);
     }
+  } finally {
+    proc.kill();
+  }
+});
+
+test('serves raw files from the target directory with correct content types', async () => {
+  const { proc, url } = await startServer(fixtureDir);
+  try {
+    const html = await fetch(new URL('/raw/page.html', url));
+    assert.equal(html.status, 200);
+    assert.match(html.headers.get('content-type'), /text\/html/);
+    assert.match(await html.text(), /Fixture Page/);
+    const css = await fetch(new URL('/raw/docs/style.css', url));
+    assert.equal(css.status, 200);
+    assert.match(css.headers.get('content-type'), /text\/css/);
+    const missing = await fetch(new URL('/raw/nope.md', url));
+    assert.equal(missing.status, 404);
+  } finally {
+    proc.kill();
+  }
+});
+
+test('raw endpoint rejects path traversal', async () => {
+  const { proc, url } = await startServer(fixtureDir);
+  try {
+    const response = await fetch(new URL('/raw/' + encodeURIComponent('../md-preview-outside.md'), url));
+    assert.equal(response.status, 404);
   } finally {
     proc.kill();
   }
