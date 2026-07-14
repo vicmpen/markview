@@ -25,4 +25,5 @@ Serve a browsable, rendered view of all markdown files in a directory.
 - Requires Node.js ≥ 18; uses only built-ins, no npm install.
 - Scans the target directory recursively, skipping `node_modules` and dot-directories.
 - To preview a different directory, start another instance with that directory as the argument — each instance picks its own port.
+- Slash commands are available for explicit control: `/md-preview:start [dir]` and `/md-preview:stop` (stops all instances).
 - If the server fails to start, show the user its stderr output rather than guessing.
