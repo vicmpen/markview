@@ -1,5 +1,13 @@
 {
   "name": "markview",
   "description": "Browse and read a directory's markdown and HTML files in a styled local web viewer",
-  "version": "0.4.0"
+  "version": "0.4.0",
+  "author": {
+    "name": "Victor Benetatos",
+    "url": "https://github.com/vicmpen"
+  },
+  "homepage": "https://github.com/vicmpen/markview",
+  "repository": "https://github.com/vicmpen/markview",
+  "license": "MIT",
+  "keywords": ["markdown", "preview", "viewer", "html", "documentation"]
 }

@@ -1,0 +1,14 @@
+{
+  "name": "markview",
+  "owner": {
+    "name": "Victor Benetatos",
+    "url": "https://github.com/vicmpen"
+  },
+  "plugins": [
+    {
+      "name": "markview",
+      "source": "./",
+      "description": "Browse and read a directory's markdown and HTML files in a styled local web viewer"
+    }
+  ]
+}
