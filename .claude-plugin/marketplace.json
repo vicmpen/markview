@@ -7,7 +7,7 @@
     {
       "name": "md-preview",
       "source": "./md-preview",
-      "description": "Browse and read a directory's markdown files in a styled local web viewer"
+      "description": "Browse and read a directory's markdown and HTML files in a styled local web viewer"
     }
   ]
 }

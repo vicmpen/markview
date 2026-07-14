@@ -1,5 +1,5 @@
 {
   "name": "md-preview",
-  "description": "Browse and read a directory's markdown files in a styled local web viewer",
-  "version": "0.3.0"
+  "description": "Browse and read a directory's markdown and HTML files in a styled local web viewer",
+  "version": "0.4.0"
 }
